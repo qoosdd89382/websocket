@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fragment Demo</title>
+</head>
+<body>
+    <th:block th:fragment="websocket" th:if="${session.user}">
+        <div id="chatWithAUser">
+            送訊息給：<select id="receiverId"></select>
+            訊息：<input id="messageContent">
+            <button id="send">送出訊息</button>
+        </div>
+        <div id="history" style="border: 1px solid #000;">
+            <h3>我是訊息欄</h3>
+        </div>
+
+        <script type="text/javascript" th:inline="javascript">
+            /*<![CDATA[*/
+            const userId = /*[[${session.user.id}]]*/'';
+            const websocket = new WebSocket(`ws://localhost:8080/channel/${userId}`);
+
+            $('#send').on('click', () => {
+                const receiverId = $('#receiverId').val();
+                const messageContent = $('#messageContent').val();
+
+                websocket.send(JSON.stringify({ receiverId, messageContent }));
+            });
+
+            // 连接断开
+            websocket.onclose = e => {
+                console.log(`连接关闭: code=${e.code}, reason=${e.reason}`)
+            }
+
+            // 收到消息
+            websocket.onmessage = e => {
+                console.log(`收到消息：${e.data}`);
+                const { type, users, messages } = JSON.parse(e.data);
+                if (type === 'MESSAGES') {
+                    messages
+                        .forEach((msg) => {
+                            $('#history').append(`
+                                <div style="border: 1px solid #ff0000;">
+                                    ${msg.senderId} 對 ${msg.receiverId} 説：
+                                    「${msg.content}」(${msg.sentAt})
+                                </div>
+                            `);
+                        });
+                } else if (type === 'USERS') {
+                    const actualUsers = users.filter(e => e.id != userId);
+                    $('#chatWithAUser').toggle(actualUsers.length > 0);
+                    $('#receiverId').html('');
+                    actualUsers
+                        .forEach(user => {
+                            $('#receiverId').append(`
+                                <option value="${user.id}">${user.username}</option>
+                            `);
+                        });
+                }
+            }
+            // 异常
+            websocket.onerror = e => {
+                console.log("连接异常")
+                console.error(e)
+            }
+            // 连接打开
+            websocket.onopen = e => {
+                console.log("连接打开");
+            }
+
+            /*]]>*/
+        </script>
+    </th:block>
+</body>
+</html>

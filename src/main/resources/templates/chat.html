@@ -1,0 +1,66 @@
+<!doctype html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+          content="width=device-width, user-scalable=no, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Document</title>
+</head>
+<body>
+    送訊息給：<input id="receiverId"><br>
+    訊息：<input id="messageContent">
+    <button id="send">送出訊息</button>
+    <div id="history" style="border: 1px solid #000;">
+        <h3>我是訊息欄</h3>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js" integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo=" crossorigin="anonymous"></script>
+    <script type="text/javascript" th:inline="javascript">
+        /*<![CDATA[*/
+        const userId = /*[[${userId}]]*/'';
+        const websocket = new WebSocket(`ws://localhost:8080/channel/${userId}`);
+
+        $('#send').on('click', () => {
+            const receiverId = $('#receiverId').val();
+            const messageContent = $('#messageContent').val();
+
+            websocket.send(JSON.stringify({ receiverId, messageContent }));
+            $('#history').append(`
+                <div style="border: 1px solid #ff0000;">
+                    ${userId} 對 ${receiverId} 説：
+                    「${messageContent}」
+                </div>
+            `);
+        });
+
+        // 连接断开
+        websocket.onclose = e => {
+            console.log(`连接关闭: code=${e.code}, reason=${e.reason}`)
+        }
+
+        // 收到消息
+        websocket.onmessage = e => {
+            console.log(`收到消息：${e.data}`);
+            const { senderId, messageContent } = JSON.parse(e.data);
+            $('#history').append(`
+                <div style="border: 1px solid #ff0000;">
+                    ${senderId} 對 ${userId} 説：
+                    「${messageContent}」
+                </div>
+            `);
+        }
+        // 异常
+        websocket.onerror = e => {
+            console.log("连接异常")
+            console.error(e)
+        }
+        // 连接打开
+        websocket.onopen = e => {
+            console.log("连接打开");
+        }
+
+        /*]]>*/
+    </script>
+</body>
+</html>
